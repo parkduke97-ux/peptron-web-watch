@@ -13,7 +13,7 @@ def test_extract_ir_faq_returns_items_with_body():
     items = extract_ir_faq(_page(), BASE)
     assert len(items) >= 1
     faq = items[0]
-    assert faq["key"] == "자주묻는질문(FAQ)"
+    assert faq["key"] == "자주묻는질문(FAQ)|2026-09-11"
     assert faq["date"] == "2026-09-11"
     # 본문에 실제 Q 문항이 들어 있어야 함
     assert "일라이 릴리" in faq["text"]

@@ -30,7 +30,7 @@ def extract_ir_faq(page_html: str, base_url: str) -> list[dict]:
         body = html_to_text(str(body_el)) if body_el else ""
         text = normalize_text(f"{title}\n{body}")
         items.append({
-            "key": title, "title": title, "date": date,
+            "key": f"{title}|{date}", "title": title, "date": date,
             "text": text, "url": base_url + "#section007", "extra": {},
         })
     return items

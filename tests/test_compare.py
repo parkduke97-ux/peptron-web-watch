@@ -1,7 +1,18 @@
+from pathlib import Path
+
 from peptron_watch.compare import compare_items
+from peptron_watch.extract import extract_ir_faq
 
 TARGET = {"key": "ir_faq", "label": "FAQ", "page_class": "IR",
           "url": "https://x/#s"}
+
+FIX = Path(__file__).parent / "fixtures"
+BASE = "https://peptron.irupsite.co.kr/Default2.aspx"
+
+
+def _real_faq_items():
+    page = (FIX / "ir_default2.html").read_text(encoding="utf-8")
+    return extract_ir_faq(page, BASE)
 
 
 def _item(key, text, title=None, date=""):
@@ -49,3 +60,38 @@ def test_title_change_recorded():
     new = [_item("a", "same2", title="새 제목")]
     e = compare_items(old, new, TARGET)[0]
     assert e["title_before"] == "옛 제목" and e["title_after"] == "새 제목"
+
+
+# --- Regression: real IR FAQ page, newest-first prepend must not spuriously
+# --- MODIFY every same-titled entry (the fix is a unique key = title|date
+# --- in extract_ir_faq, not positional pairing in compare_items).
+
+def test_real_faq_prepend_yields_single_new_no_spurious_modified():
+    old = _real_faq_items()
+    # The site renders newest-first: a new posting is PREPENDED at index 0,
+    # not appended. Same title as the current first entry, brand-new date.
+    new_entry = dict(old[0])
+    new_entry["date"] = "2026-09-12"
+    new_entry["key"] = f"{new_entry['title']}|{new_entry['date']}"
+    new_entry["text"] = new_entry["text"] + "\n신규 공지 문구"
+    new = [new_entry] + old
+
+    events = compare_items(old, new, TARGET)
+    assert len(events) == 1
+    assert events[0]["kind"] == "NEW"
+    assert events[0]["item_key"] == new_entry["key"]
+    assert all(e["kind"] != "MODIFIED" for e in events)
+
+
+def test_real_faq_body_edit_yields_single_modified_for_that_entry():
+    old = _real_faq_items()
+    new = [dict(it) for it in old]
+    target_idx = 0
+    edited = new[target_idx]
+    edited["text"] = edited["text"].replace("일라이 릴리", "일라이 릴리(수정됨)", 1)
+    assert edited["text"] != old[target_idx]["text"]
+
+    events = compare_items(old, new, TARGET)
+    assert len(events) == 1
+    assert events[0]["kind"] == "MODIFIED"
+    assert events[0]["item_key"] == old[target_idx]["key"]

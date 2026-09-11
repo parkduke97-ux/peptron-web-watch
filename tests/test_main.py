@@ -17,7 +17,7 @@ def test_extract_for_ir_faq():
     t = {"key": "ir_faq", "label": "FAQ", "type": "IR_FAQ",
          "page_class": "IR", "url": "https://peptron.irupsite.co.kr/Default2.aspx"}
     items = m.extract_for(t, _page_fetcher())
-    assert items and items[0]["key"] == "자주묻는질문(FAQ)"
+    assert items and items[0]["key"] == "자주묻는질문(FAQ)|2026-09-11"
 
 
 def test_baseline_saves_without_sending(tmp_path):
