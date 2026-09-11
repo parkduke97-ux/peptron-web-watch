@@ -96,6 +96,11 @@ def run(config, state_dir, fetcher, sender, now=None):
 
 
 def _cli():
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):
+        pass
     config = load_config(os.path.join(os.path.dirname(__file__), "watch_config.yaml"))
     state_dir = os.path.join(os.path.dirname(__file__), "state")
     dry = "--dry-run" in sys.argv
