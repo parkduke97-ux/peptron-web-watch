@@ -1,5 +1,6 @@
 import json
 import re
+from urllib.parse import urljoin, urlparse, parse_qs
 from bs4 import BeautifulSoup
 from .normalize import html_to_text, normalize_text
 
@@ -90,3 +91,32 @@ def parse_ir_activity_detail(json_text: str, base_url: str) -> dict:
         "url": base_url + "#section009",
         "extra": flags,
     }
+
+
+def extract_link_list(page_html: str, base_url: str, id_param: str = "no") -> list[dict]:
+    soup = _soup(page_html)
+    seen = {}
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        qs = parse_qs(urlparse(href).query)
+        if id_param not in qs:
+            continue
+        key = f"{id_param}={qs[id_param][0]}"
+        if key in seen:
+            continue
+        seen[key] = {
+            "key": key,
+            "title": normalize_text(a.get_text()),
+            "date": "",
+            "text": key,
+            "url": urljoin(base_url, href),
+            "extra": {},
+        }
+    return list(seen.values())
+
+
+def extract_generic_text(page_html: str, base_url: str) -> list[dict]:
+    return [{
+        "key": "page", "title": "", "date": "",
+        "text": html_to_text(page_html), "url": base_url, "extra": {},
+    }]
