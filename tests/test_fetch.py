@@ -28,6 +28,15 @@ def test_fetch_success_first_try():
     assert s.calls == 1
 
 
+def test_fetch_forces_utf8_instead_of_incorrect_detected_encoding():
+    response = _Resp(200, "한글")
+    response.encoding = "MacCyrillic"
+    s = _Session([response])
+
+    assert fetch_text("http://x", session=s, sleep=lambda _: None) == "한글"
+    assert response.encoding == "utf-8"
+
+
 def test_fetch_retries_then_succeeds():
     s = _Session([_Resp(500), _Resp(200, "ok")])
     assert fetch_text("http://x", session=s, sleep=lambda _: None) == "ok"

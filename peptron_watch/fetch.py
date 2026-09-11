@@ -11,13 +11,13 @@ def fetch_text(url, retries=3, backoff=2.0, sleep=time.sleep, session=None):
         try:
             resp = sess.get(url, headers={"User-Agent": _UA}, timeout=30)
             if resp.status_code == 200:
-                # Use apparent_encoding if available (for detecting euc-kr vs utf-8),
-                # otherwise fall back to resp.encoding. This keeps the brief's tests
-                # passing (their fake _Resp has no apparent_encoding, so getattr -> None)
-                # while correctly handling real sites like www.peptron.co.kr (euc-kr).
-                enc = getattr(resp, "apparent_encoding", None) or resp.encoding
-                if enc:
-                    resp.encoding = enc
+                # Force utf-8 decoding (the HTTP header charset both target sites
+                # send, even when a page's stale <meta> tag claims euc-kr).
+                # Do NOT use resp.apparent_encoding here: for www.peptron.co.kr it
+                # guesses "MacCyrillic" (a single-byte codec that never raises),
+                # which silently decodes valid UTF-8 bytes into mojibake instead
+                # of failing loudly.
+                resp.encoding = "utf-8"
                 return resp.text
             last_err = RuntimeError(f"HTTP {resp.status_code} for {url}")
         except Exception as e:  # 네트워크 예외 포함
