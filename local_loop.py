@@ -8,7 +8,7 @@ from main import load_config, run
 from peptron_watch import fetch, notify, state
 
 KST = timezone(timedelta(hours=9))
-LOOP_INTERVAL_SECONDS = 180  # 3분마다 감시 (GitHub의 하트비트 판단 기준 10분보다 훨씬 촘촘함)
+LOOP_INTERVAL_SECONDS = 60  # 1분마다 감시 (GitHub의 하트비트 판단 기준 10분보다 훨씬 촘촘함)
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 
 

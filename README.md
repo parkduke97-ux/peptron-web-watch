@@ -29,19 +29,30 @@
 PC를 켜두는 동안은 PC가 직접 몇 분마다 감시하고, PC가 꺼지면 자동으로 GitHub Actions가 이어받는 구조입니다. 별도 설정 없이 그냥 켜고 끄면 됩니다 — 두 쪽이 서로의 상태를 "하트비트"로 판단합니다.
 
 ### 동작 원리
-1. PC의 `local_loop.py`가 몇 분(기본 3분)마다 감시를 돌리고, 끝날 때마다 `state/heartbeat.json`에 현재 시각을 기록해 GitHub에 push합니다.
+1. PC의 `local_loop.py`가 몇 분(기본 1분)마다 감시를 돌리고, 끝날 때마다 `state/heartbeat.json`에 현재 시각을 기록해 GitHub에 push합니다.
 2. GitHub Actions는 5분마다 깨어나서 이 하트비트 파일을 확인합니다. **10분 이내**에 기록된 하트비트가 있으면 "PC가 감시 중"으로 보고 아무 것도 안 하고 종료합니다. 하트비트가 오래됐거나 없으면(PC 꺼짐) 평소처럼 감시+알림+상태 저장을 수행합니다.
 3. 둘 다 감시 결과를 `state/`에 저장하고 git에 push하기 때문에, 어느 쪽이 감시했든 다음 실행에서 최신 상태를 이어받습니다.
 
-### PC에서 실행하기
-1. `.env.example`을 복사해 `.env`로 만들고 텔레그램 토큰/chat_id를 채웁니다 (`.env`는 `.gitignore`에 있어 커밋되지 않습니다)
-2. `python -m pip install -r requirements.txt`
-3. `run_local_watch.bat`을 더블클릭하거나, 터미널에서 `python local_loop.py` 실행
-4. 창을 켜둔 채로 두면 계속 감시합니다. 종료하려면 창을 닫거나 Ctrl+C
+### PC에서 실행하기 (원클릭)
+새 PC에도 Python과 git만 미리 설치돼 있으면 됩니다.
+1. 저장소를 git clone 합니다
+2. `run_local_watch.bat`을 더블클릭합니다
+   - `.env`가 없으면 자동으로 `.env.example`을 복사해 메모장으로 열어줍니다. 텔레그램 토큰/chat_id를 채우고 저장한 뒤 메모장을 닫으세요
+   - 안내에 따라 **다시 한번 더블클릭**하면, 이번엔 필요한 패키지를 자동 설치하고 바로 감시를 시작합니다
+3. 창을 켜둔 채로 두면 계속 감시합니다. 종료하려면 창을 닫거나 Ctrl+C
+
+터미널을 직접 쓰고 싶다면 `python -m pip install -r requirements.txt` 후 `python local_loop.py`를 실행해도 동일합니다.
+
+### 실행 상태 바로 확인하기
+`check_status.bat`을 더블클릭하면 그 PC에서:
+- `local_loop.py` 프로세스가 실제로 떠 있는지(PID)
+- 마지막 하트비트 기록 시각과 신선도(10분 이내인지)
+
+를 즉시 보여줍니다. 감시가 잘 돌고 있는지 매번 콘솔 로그를 눈으로 훑을 필요 없이 이 배치파일 하나로 확인할 수 있습니다.
 
 ### 주의할 점
 - `local_loop.py`는 매 주기마다 `git pull --rebase` 후 `git push`를 시도합니다. PC의 git 자격증명(예: `gh auth login` 또는 credential helper)이 이 저장소에 push할 수 있게 미리 설정되어 있어야 합니다.
-- 하트비트 신선도 기준(10분)은 `check_heartbeat.py`의 `HEARTBEAT_FRESH_MINUTES`, 로컬 실행 주기(3분)는 `local_loop.py`의 `LOOP_INTERVAL_SECONDS`에서 바꿀 수 있습니다. 로컬 주기를 늘릴 경우 하트비트 기준도 그에 맞춰 여유 있게 늘리세요 (기준이 로컬 주기보다 최소 2~3배는 커야 정상 동작 중에 GitHub이 오판하지 않습니다).
+- 하트비트 신선도 기준(10분)은 `check_heartbeat.py`의 `HEARTBEAT_FRESH_MINUTES`, 로컬 실행 주기(1분)는 `local_loop.py`의 `LOOP_INTERVAL_SECONDS`에서 바꿀 수 있습니다. 로컬 주기를 늘릴 경우 하트비트 기준도 그에 맞춰 여유 있게 늘리세요 (기준이 로컬 주기보다 최소 2~3배는 커야 정상 동작 중에 GitHub이 오판하지 않습니다).
 - PC 인터넷이 끊기거나 스크립트만 죽고 PC는 켜져 있는 경우에도, 하트비트가 10분 넘게 갱신 안 되면 GitHub이 자동으로 이어받습니다.
 
 ## public vs private 저장소 — 실행 비용 트레이드오프
