@@ -8,6 +8,7 @@ import requests
 
 from main import load_config, run
 from peptron_watch import fetch, notify, state
+from peptron_watch.hours import is_watch_time
 
 KST = timezone(timedelta(hours=9))
 LOOP_INTERVAL_SECONDS = 30
@@ -89,11 +90,21 @@ def _cli():
     def fetcher(url):
         return fetch.fetch_text(url, session=session)
 
-    print(f"24시간 감시 시작 (주기: {LOOP_INTERVAL_SECONDS}초). 종료하려면 Ctrl+C.")
+    hours = config.get("watch_hours")
+    window = f"평일 {hours['start']}~{hours['end']}, 주말·공휴일 제외" if hours else "24시간"
+    print(f"감시 시작 (감시 시간: {window}, 주기: {LOOP_INTERVAL_SECONDS}초). 종료하려면 Ctrl+C.")
     sync(datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"))  # 시작 시 최신 state 받기
     last_heartbeat = None
+    active = None
     while True:
         now = datetime.now(KST)
+        now_active = is_watch_time(now, hours)
+        if now_active != active:
+            active = now_active
+            print(f"[{now:%Y-%m-%d %H:%M}] " + ("감시 시간 - 감시 중" if active else "감시 시간 외 - 대기"))
+        if not active:
+            time.sleep(LOOP_INTERVAL_SECONDS)
+            continue
         try:
             run(config, state_dir, fetcher, sender, now=now)
         except Exception as e:

@@ -57,8 +57,9 @@ Wants=network-online.target
 [Service]
 User=$USER
 WorkingDirectory=$REPO_DIR
-# 재시작할 때마다 GitHub의 최신 코드를 받아서 실행한다
+# 재시작할 때마다 GitHub의 최신 코드와 그에 필요한 패키지를 받아서 실행한다
 ExecStartPre=-/usr/bin/git pull --rebase --autostash
+ExecStartPre=-$REPO_DIR/.venv/bin/pip install -q -r requirements.txt
 ExecStart=$REPO_DIR/.venv/bin/python local_loop.py
 Restart=always
 RestartSec=30

@@ -2,6 +2,12 @@ telegram:
   token_env: TELEGRAM_BOT_TOKEN
   chat_id_env: TELEGRAM_CHAT_ID
 
+# 한국 시간 기준, 평일(주말·공휴일 제외) 이 시간에만 감시한다 (VM·GitHub 공통).
+watch_hours:
+  start: "07:50"   # 따옴표를 빼면 YAML이 숫자로 읽는다
+  end: "19:00"
+  extra_holidays: []   # 공휴일 목록에 아직 없는 임시공휴일, 예: ["2026-10-02"]
+
 keywords:
   - 일라이릴리
   - 릴리

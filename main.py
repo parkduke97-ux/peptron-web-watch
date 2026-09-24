@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 import yaml
 
 from peptron_watch import extract, compare, enrich, render, state, fetch, notify
+from peptron_watch.hours import is_watch_time
 
 KST = timezone(timedelta(hours=9))
 FAILURE_ALERT_THRESHOLD = 6  # 연속 6회(~30분) 실패 시 경고
@@ -111,6 +112,10 @@ def _cli():
     config = load_config(os.path.join(os.path.dirname(__file__), "watch_config.yaml"))
     state_dir = os.path.join(os.path.dirname(__file__), "state")
     dry = "--dry-run" in sys.argv
+    hours = config.get("watch_hours")
+    if not dry and not is_watch_time(datetime.now(KST), hours):
+        print(f"감시 시간(평일 {hours['start']}~{hours['end']} KST, 주말·공휴일 제외) 밖이라 건너뜀")
+        return
     fetcher = fetch.fetch_text
     if dry:
         def sender(text):
