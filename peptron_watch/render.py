@@ -2,8 +2,10 @@ _EMOJI = {"CRITICAL": "🔴", "HIGH": "🟠", "NORMAL": "🟢"}
 
 
 def render_event(event, max_len=3800):
-    emoji = _EMOJI.get(event["importance"], "🟢")
-    head = f"{emoji} 펩트론 웹사이트 변경 감지"
+    if event["kind"] == "REORDERED":
+        head = "⚠️ 펩트론 홈페이지 게시물 순서 변경"
+    else:
+        head = f"{_EMOJI.get(event['importance'], '🟢')} 펩트론 웹사이트 변경 감지"
     lines = [
         head, "",
         f"중요도: {event['importance']}",
@@ -19,7 +21,11 @@ def render_event(event, max_len=3800):
 
     added = event.get("added_lines", [])
     removed = event.get("removed_lines", [])
+    moved = event.get("moved_lines", [])
     body_lines = []
+    if moved:
+        body_lines.append("\n이동한 게시물:")
+        body_lines += [f"• {ln}" for ln in moved]
     if added:
         body_lines.append("\n추가:")
         body_lines += [f"+ {ln}" for ln in added]

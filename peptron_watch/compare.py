@@ -28,6 +28,31 @@ def _event(target, kind, item, **extra):
     return e
 
 
+def _reorder_event(old_items, new_items, target):
+    old_seq = [it["key"] for it in old_items]
+    new_seq = [it["key"] for it in new_items]
+    common = set(old_seq) & set(new_seq)
+    old_seq = [k for k in old_seq if k in common]
+    new_seq = [k for k in new_seq if k in common]
+    if old_seq == new_seq:
+        return None
+    # 최장 공통 순서에 남은 글은 제자리로 보고 나머지만 "이동"으로 알린다 (덩달아 밀린 글 제외)
+    sm = difflib.SequenceMatcher(None, old_seq, new_seq, autojunk=False)
+    kept = {k for _, b, n in sm.get_matching_blocks() for k in new_seq[b:b + n]}
+    old_pos = {it["key"]: i + 1 for i, it in enumerate(old_items)}
+    new_by_key = {it["key"]: (i + 1, it) for i, it in enumerate(new_items)}
+    moved_lines = []
+    for k in new_seq:
+        if k in kept:
+            continue
+        pos, item = new_by_key[k]
+        title = " ".join((item.get("title") or k).split())
+        moved_lines.append(f"{title}: {old_pos[k]}번째 → {pos}번째")
+    return _event(target, "REORDERED", {"key": "__order__"},
+                  moved_lines=moved_lines,
+                  text_before="\n".join(old_seq), text_after="\n".join(new_seq))
+
+
 def compare_items(old_items, new_items, target):
     old = {it["key"]: it for it in old_items}
     new = {it["key"]: it for it in new_items}
@@ -52,4 +77,7 @@ def compare_items(old_items, new_items, target):
     for key, item in old.items():
         if key not in new:
             events.append(_event(target, "REMOVED", item))
+    reorder = _reorder_event(old_items, new_items, target)
+    if reorder:
+        events.append(reorder)
     return events

@@ -43,6 +43,16 @@ def test_render_no_keyword_line_when_empty():
     assert "관련 키워드" not in msg
 
 
+def test_render_reorder_shows_header_and_moved_items():
+    msg = render_event(_ev(kind="REORDERED", event_type_label="고정 공지·게시물 순서 변경",
+                           added_lines=[], removed_lines=[],
+                           moved_lines=["고정 공지: 4번째 → 1번째"]))
+    assert msg.splitlines()[0] == "⚠️ 펩트론 홈페이지 게시물 순서 변경"
+    assert "구분: 고정 공지·게시물 순서 변경" in msg
+    assert "이동한 게시물:" in msg
+    assert "• 고정 공지: 4번째 → 1번째" in msg
+
+
 def test_render_startup():
     msg = render_startup({"ir_faq": 1, "corp_news": 20}, "2026-09-11 14:00:00 KST")
     assert "감시" in msg and "ir_faq" in msg and "20" in msg

@@ -4,13 +4,18 @@ from datetime import datetime, timezone, timedelta
 
 KST = timezone(timedelta(hours=9))
 
-_TYPE_LABEL = {"NEW": "신규 게시글", "MODIFIED": "기존 게시글 수정", "REMOVED": "게시글 삭제"}
+_TYPE_LABEL = {"NEW": "신규 게시글", "MODIFIED": "기존 게시글 수정", "REMOVED": "게시글 삭제",
+               "REORDERED": "고정 공지·게시물 순서 변경"}
+
+
+def _change_lines(event):
+    return (event.get("added_lines", []) + event.get("removed_lines", [])
+            + event.get("moved_lines", []))
 
 
 def _matched_keywords(event, keywords):
     haystack = "\n".join(
-        event.get("added_lines", []) + event.get("removed_lines", [])
-        + [event.get("title", ""), event.get("title_after", "")]
+        _change_lines(event) + [event.get("title", ""), event.get("title_after", "")]
     ).lower()
     return [kw for kw in keywords if kw.lower() in haystack]
 
@@ -18,7 +23,7 @@ def _matched_keywords(event, keywords):
 def _importance(event, matched):
     if matched:
         return "CRITICAL"
-    if event["kind"] == "REMOVED":
+    if event["kind"] in ("REMOVED", "REORDERED"):
         return "CRITICAL"
     if event["kind"] == "NEW" and event["page_class"] == "DISCLOSURE":
         return "CRITICAL"
@@ -37,8 +42,7 @@ def _change_ratio(event):
 
 
 def _event_id(event):
-    seed = event["target_key"] + event["item_key"] + "\n".join(
-        event.get("added_lines", []) + event.get("removed_lines", []))
+    seed = event["target_key"] + event["item_key"] + "\n".join(_change_lines(event))
     return "EVT-" + hashlib.sha256(seed.encode("utf-8")).hexdigest()[:10].upper()
 
 

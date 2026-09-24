@@ -43,6 +43,19 @@ def test_change_ratio_and_event_id_and_time():
     assert e["detected_at"] == "2026-09-11 14:09:14 KST"
 
 
+def test_reorder_is_critical_with_label_ratio_and_keywords():
+    moved = ["릴리 기술이전 안내: 4번째 → 1번째"]
+    e = enrich_event(_base(kind="REORDERED", item_key="__order__", moved_lines=moved,
+                           text_before="a\nb\nc\nd", text_after="d\na\nb\nc"), KW, now=NOW)
+    assert e["importance"] == "CRITICAL"
+    assert e["event_type_label"] == "고정 공지·게시물 순서 변경"
+    assert 0 < e["change_ratio"] < 100
+    assert "릴리" in e["keywords"]
+    other = enrich_event(_base(kind="REORDERED", item_key="__order__",
+                               moved_lines=["다른 글: 2번째 → 1번째"]), KW, now=NOW)
+    assert e["event_id"] != other["event_id"]
+
+
 def test_event_id_stable_for_same_change():
     a = enrich_event(_base(added_lines=["x"]), KW, now=NOW)
     b = enrich_event(_base(added_lines=["x"]), KW, now=NOW)

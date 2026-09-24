@@ -62,6 +62,25 @@ def test_title_change_recorded():
     assert e["title_before"] == "옛 제목" and e["title_after"] == "새 제목"
 
 
+def test_item_moved_to_top_yields_single_reorder_event():
+    old = [_item("a", "x"), _item("b", "y"), _item("c", "z"),
+           _item("d", "w", title="고정 공지\n2026-09-03")]
+    new = [old[3], old[0], old[1], old[2]]
+    events = compare_items(old, new, TARGET)
+    assert len(events) == 1
+    e = events[0]
+    assert e["kind"] == "REORDERED"
+    assert e["moved_lines"] == ["고정 공지 2026-09-03: 4번째 → 1번째"]
+    assert e["url"] == TARGET["url"]
+
+
+def test_added_and_removed_items_alone_are_not_reorder():
+    old = [_item("a", "x"), _item("b", "y"), _item("c", "z")]
+    new = [_item("n", "new"), _item("a", "x"), _item("c", "z")]
+    kinds = sorted(e["kind"] for e in compare_items(old, new, TARGET))
+    assert kinds == ["NEW", "REMOVED"]
+
+
 # --- Regression: real IR FAQ page, newest-first prepend must not spuriously
 # --- MODIFY every same-titled entry (the fix is a unique key = title|date
 # --- in extract_ir_faq, not positional pairing in compare_items).

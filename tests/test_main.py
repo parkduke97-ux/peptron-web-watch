@@ -55,6 +55,21 @@ def test_modification_triggers_send(tmp_path):
     assert "변경 감지" in sent[0]
 
 
+def test_reorder_sends_once_then_stays_quiet(tmp_path):
+    sent = []
+    t = {"key": "corp_news", "label": "펩트론 뉴스", "type": "LINK_LIST",
+         "page_class": "NEWS", "url": "https://www.peptron.co.kr/ds4_1_1.html"}
+    sender = lambda text: sent.append(text) or True
+    before = '<a href="?no=3">셋</a><a href="?no=2">둘</a><a href="?no=1">하나</a>'
+    after = '<a href="?no=1">하나</a><a href="?no=3">셋</a><a href="?no=2">둘</a>'
+    m.process_target(t, KW, str(tmp_path), lambda u: before, sender, NOW)  # baseline
+    m.process_target(t, KW, str(tmp_path), lambda u: after, sender, NOW)
+    m.process_target(t, KW, str(tmp_path), lambda u: after, sender, NOW)
+    assert len(sent) == 1
+    assert "게시물 순서 변경" in sent[0]
+    assert "하나: 3번째 → 1번째" in sent[0]
+
+
 def test_send_failure_keeps_old_snapshot(tmp_path):
     t = {"key": "ir_faq", "label": "FAQ", "type": "IR_FAQ",
          "page_class": "IR", "url": "https://peptron.irupsite.co.kr/Default2.aspx"}
