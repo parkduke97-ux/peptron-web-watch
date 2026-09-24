@@ -72,6 +72,7 @@ def _cli():
     chat_id = os.environ[config["telegram"]["chat_id_env"]]
 
     def sender(text):
+        print("\n===== 변경 감지 =====\n" + text + "\n=====================\n")
         return notify.send_message(token, chat_id, text)
 
     print(f"로컬 24시간 감시 시작 (주기: {LOOP_INTERVAL_SECONDS}초). 종료하려면 Ctrl+C.")
