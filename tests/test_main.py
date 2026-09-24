@@ -70,6 +70,21 @@ def test_reorder_sends_once_then_stays_quiet(tmp_path):
     assert "하나: 3번째 → 1번째" in sent[0]
 
 
+def test_run_fetches_each_url_once_per_cycle(tmp_path):
+    page = (FIX / "ir_default2.html").read_text(encoding="utf-8")
+    url = "https://peptron.irupsite.co.kr/Default2.aspx"
+    config = {"keywords": [], "targets": [
+        {"key": "ir_faq", "label": "FAQ", "type": "IR_FAQ", "page_class": "IR", "url": url},
+        {"key": "ir_disclosure", "label": "공시정보", "type": "IR_TABLE",
+         "section_id": "section004", "page_class": "DISCLOSURE", "url": url},
+    ]}
+    calls = []
+    fetcher = lambda u: calls.append(u) or page
+    m.run(config, str(tmp_path), fetcher, lambda text: True, now=NOW)
+    m.run(config, str(tmp_path), fetcher, lambda text: True, now=NOW)
+    assert calls == [url, url]  # 주기마다 1번씩
+
+
 def test_send_failure_keeps_old_snapshot(tmp_path):
     t = {"key": "ir_faq", "label": "FAQ", "type": "IR_FAQ",
          "page_class": "IR", "url": "https://peptron.irupsite.co.kr/Default2.aspx"}

@@ -4,11 +4,15 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 
+import requests
+
 from main import load_config, run
 from peptron_watch import fetch, notify, state
 
 KST = timezone(timedelta(hours=9))
-LOOP_INTERVAL_SECONDS = 60  # 1분마다 감시 (GitHub의 하트비트 판단 기준 10분보다 훨씬 촘촘함)
+LOOP_INTERVAL_SECONDS = 30
+# GitHub의 하트비트 판단 기준(10분)의 절반. 매 주기 push하면 하루 수천 개 커밋이 쌓인다.
+HEARTBEAT_PUSH_SECONDS = 300
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -34,27 +38,32 @@ def _git(*args):
     )
 
 
-def sync_before_run():
-    result = _git("pull", "--rebase", "origin", "HEAD")
-    if result.returncode != 0:
-        print(f"[동기화] pull --rebase 실패, 이번 주기는 건너뜀: {result.stderr.strip()}",
-              file=sys.stderr)
-        return False
-    return True
+def has_unsynced_changes():
+    dirty = _git("status", "--porcelain", "state/").stdout.strip()
+    ahead = _git("rev-list", "--count", "@{u}..HEAD").stdout.strip()
+    return bool(dirty) or ahead not in ("", "0")
 
 
-def push_state_changes(now_str):
+def sync(now_str):
+    """state/ 변경을 커밋하고 원격을 받아 합친 뒤, 밀린 커밋이 있으면 push한다."""
     _git("add", "state/")
-    diff = _git("diff", "--cached", "--quiet")
-    if diff.returncode == 0:
-        return  # 변경 없음
-    commit = _git("commit", "-m", f"state: 로컬 감시 스냅샷 갱신 ({now_str}) [skip ci]")
-    if commit.returncode != 0:
-        print(f"[동기화] commit 실패: {commit.stderr.strip()}", file=sys.stderr)
+    if _git("diff", "--cached", "--quiet").returncode != 0:
+        commit = _git("commit", "-m", f"state: 로컬 감시 스냅샷 갱신 ({now_str}) [skip ci]")
+        if commit.returncode != 0:
+            print(f"[동기화] commit 실패: {commit.stderr.strip()}", file=sys.stderr)
+            return
+    # --autostash: 커밋 안 한 코드 수정이 있어도 pull이 막히지 않게 한다.
+    # -X theirs: 충돌 시 이 감시기의 state를 우선한다 (rebase에서 theirs = 다시 얹는 로컬 커밋).
+    pull = _git("pull", "--rebase", "--autostash", "-X", "theirs")
+    if pull.returncode != 0:
+        _git("rebase", "--abort")
+        print(f"[동기화] pull 실패 (다음 동기화 때 재시도): {pull.stderr.strip()}", file=sys.stderr)
+        return
+    if _git("rev-list", "--count", "@{u}..HEAD").stdout.strip() in ("", "0"):
         return
     push = _git("push")
     if push.returncode != 0:
-        print(f"[동기화] push 실패 (다음 주기에 재시도됨): {push.stderr.strip()}", file=sys.stderr)
+        print(f"[동기화] push 실패 (다음 동기화 때 재시도): {push.stderr.strip()}", file=sys.stderr)
 
 
 def _cli():
@@ -75,16 +84,25 @@ def _cli():
         print("\n===== 변경 감지 =====\n" + text + "\n=====================\n")
         return notify.send_message(token, chat_id, text)
 
-    print(f"로컬 24시간 감시 시작 (주기: {LOOP_INTERVAL_SECONDS}초). 종료하려면 Ctrl+C.")
+    session = requests.Session()
+
+    def fetcher(url):
+        return fetch.fetch_text(url, session=session)
+
+    print(f"24시간 감시 시작 (주기: {LOOP_INTERVAL_SECONDS}초). 종료하려면 Ctrl+C.")
+    sync(datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"))  # 시작 시 최신 state 받기
+    last_heartbeat = None
     while True:
-        if sync_before_run():
-            now = datetime.now(KST)
-            try:
-                run(config, state_dir, fetch.fetch_text, sender, now=now)
-            except Exception as e:
-                print(f"[루프] 실행 중 오류: {e}", file=sys.stderr)
+        now = datetime.now(KST)
+        try:
+            run(config, state_dir, fetcher, sender, now=now)
+        except Exception as e:
+            print(f"[루프] 실행 중 오류: {e}", file=sys.stderr)
+        if last_heartbeat is None or (now - last_heartbeat).total_seconds() >= HEARTBEAT_PUSH_SECONDS:
             state.save_heartbeat(state_dir, now.isoformat())
-            push_state_changes(now.strftime("%Y-%m-%d %H:%M KST"))
+            last_heartbeat = now
+        if has_unsynced_changes():
+            sync(now.strftime("%Y-%m-%d %H:%M KST"))
         time.sleep(LOOP_INTERVAL_SECONDS)
 
 

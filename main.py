@@ -72,9 +72,16 @@ def run(config, state_dir, fetcher, sender, now=None):
         state.load_snapshot(state_dir, t["key"]) is not None
         for t in config["targets"])
     counts = {}
+    pages = {}  # 여러 대상이 같은 IR 페이지(약 300KB)를 쓰므로 주기 안에서는 한 번만 받는다
+
+    def cached_fetch(url):
+        if url not in pages:
+            pages[url] = fetcher(url)
+        return pages[url]
+
     for target in config["targets"]:
         try:
-            events = process_target(target, keywords, state_dir, fetcher, sender, now)
+            events = process_target(target, keywords, state_dir, cached_fetch, sender, now)
             snap = state.load_snapshot(state_dir, target["key"]) or []
             counts[target["key"]] = len(snap)
             _ = events

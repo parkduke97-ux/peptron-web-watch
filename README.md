@@ -29,7 +29,7 @@
 PC를 켜두는 동안은 PC가 직접 몇 분마다 감시하고, PC가 꺼지면 자동으로 GitHub Actions가 이어받는 구조입니다. 별도 설정 없이 그냥 켜고 끄면 됩니다 — 두 쪽이 서로의 상태를 "하트비트"로 판단합니다.
 
 ### 동작 원리
-1. PC의 `local_loop.py`가 몇 분(기본 1분)마다 감시를 돌리고, 끝날 때마다 `state/heartbeat.json`에 현재 시각을 기록해 GitHub에 push합니다.
+1. PC(또는 클라우드 VM)의 `local_loop.py`가 30초마다 감시를 돌립니다. 5분마다 `state/heartbeat.json`에 현재 시각을 기록해 GitHub에 push하고, 변경이 감지되면 스냅샷을 즉시 push합니다.
 2. GitHub Actions는 5분마다 깨어나서 이 하트비트 파일을 확인합니다. **10분 이내**에 기록된 하트비트가 있으면 "PC가 감시 중"으로 보고 아무 것도 안 하고 종료합니다. 하트비트가 오래됐거나 없으면(PC 꺼짐) 평소처럼 감시+알림+상태 저장을 수행합니다.
 3. 둘 다 감시 결과를 `state/`에 저장하고 git에 push하기 때문에, 어느 쪽이 감시했든 다음 실행에서 최신 상태를 이어받습니다.
 
@@ -51,9 +51,35 @@ PC를 켜두는 동안은 PC가 직접 몇 분마다 감시하고, PC가 꺼지�
 를 즉시 보여줍니다. 감시가 잘 돌고 있는지 매번 콘솔 로그를 눈으로 훑을 필요 없이 이 배치파일 하나로 확인할 수 있습니다.
 
 ### 주의할 점
-- `local_loop.py`는 매 주기마다 `git pull --rebase` 후 `git push`를 시도합니다. PC의 git 자격증명(예: `gh auth login` 또는 credential helper)이 이 저장소에 push할 수 있게 미리 설정되어 있어야 합니다.
-- 하트비트 신선도 기준(10분)은 `check_heartbeat.py`의 `HEARTBEAT_FRESH_MINUTES`, 로컬 실행 주기(1분)는 `local_loop.py`의 `LOOP_INTERVAL_SECONDS`에서 바꿀 수 있습니다. 로컬 주기를 늘릴 경우 하트비트 기준도 그에 맞춰 여유 있게 늘리세요 (기준이 로컬 주기보다 최소 2~3배는 커야 정상 동작 중에 GitHub이 오판하지 않습니다).
+- `local_loop.py`는 push할 게 있을 때(하트비트 5분마다, 또는 변경 감지 시)만 `git pull --rebase` 후 `git push`를 합니다. PC의 git 자격증명(예: `gh auth login` 또는 credential helper)이 이 저장소에 push할 수 있게 미리 설정되어 있어야 합니다.
+- 감시 주기(30초)는 `local_loop.py`의 `LOOP_INTERVAL_SECONDS`, 하트비트 push 간격(5분)은 `HEARTBEAT_PUSH_SECONDS`, GitHub의 하트비트 신선도 기준(10분)은 `check_heartbeat.py`의 `HEARTBEAT_FRESH_MINUTES`에서 바꿀 수 있습니다. 신선도 기준은 하트비트 push 간격의 2배 이상이어야 정상 동작 중에 GitHub이 오판하지 않습니다.
+- PC와 클라우드 VM에서 동시에 돌리지 마세요. 같은 변경을 양쪽에서 알려 알림이 두 번 옵니다.
 - PC 인터넷이 끊기거나 스크립트만 죽고 PC는 켜져 있는 경우에도, 하트비트가 10분 넘게 갱신 안 되면 GitHub이 자동으로 이어받습니다.
+
+## 클라우드(Google Cloud 무료 VM)에서 24시간 감시
+
+PC를 켜두지 않아도 30초마다 감시하려면, Google Cloud의 무료 VM에서 `local_loop.py`를 서비스로 돌립니다. VM이 살아있는 동안 GitHub Actions는 하트비트를 보고 건너뜁니다.
+
+### 1. VM 만들기 (콘솔: Compute Engine → VM 인스턴스 → 인스턴스 만들기)
+무료 조건을 벗어나면 과금되므로 아래 값을 그대로 맞추세요.
+- 리전: `us-west1`, `us-central1`, `us-east1` 중 하나 (무료는 이 세 곳만)
+- 머신 유형: `e2-micro`
+- 부팅 디스크: Debian 12, **디스크 유형 "표준 영구 디스크"(Standard persistent disk)**, 30GB 이하 — 기본값인 "균형 있는 영구 디스크"는 무료가 아닙니다
+- 결제 → 예산 및 알림에서 월 1달러 예산 알림을 걸어두면 과금이 생길 때 바로 알 수 있습니다
+
+### 2. 설치 (VM 목록의 SSH 버튼으로 접속 후)
+```bash
+sudo apt-get update && sudo apt-get install -y git
+git clone https://github.com/parkduke97-ux/peptron-web-watch.git
+cd peptron-web-watch
+bash deploy/setup_gcp.sh
+```
+스크립트가 안내하는 대로 텔레그램 토큰/chat_id를 입력하고, 화면에 나온 공개키 한 줄을 GitHub 저장소 → Settings → Deploy keys에 **Allow write access**를 체크해 등록하면 끝입니다. 이후 VM이 재부팅돼도 감시가 자동으로 다시 시작됩니다.
+
+### 3. 운영
+- 실시간 로그: `journalctl -u peptron-watch -f`
+- 코드를 GitHub에 올린 뒤 VM에 반영: `sudo systemctl restart peptron-watch` (재시작 시 최신 코드를 받아옴)
+- 중지: `sudo systemctl stop peptron-watch` (이후 GitHub Actions가 자동으로 이어받음)
 
 ## public vs private 저장소 — 실행 비용 트레이드오프
 
