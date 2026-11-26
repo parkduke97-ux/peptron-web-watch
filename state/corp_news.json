@@ -1,10 +1,10 @@
 [
   {
-    "key": "no=123",
-    "title": "일부 언론 보도에 대한 회사 입장 안내",
+    "key": "no=124",
+    "title": "펩트론, 글로벌 제약사 ‘페링’과 장기�..",
     "date": "",
-    "text": "no=123",
-    "url": "https://www.peptron.co.kr/ds4_1_1.html?db=newsp&no=123&c=view&page=1&SK=&SN=&kind3=&idx=",
+    "text": "no=124",
+    "url": "https://www.peptron.co.kr/ds4_1_1.html?db=newsp&no=124&c=view&page=1&SK=&SN=&kind3=&idx=",
     "extra": {}
   },
   {
@@ -13,6 +13,14 @@
     "date": "",
     "text": "no=122",
     "url": "https://www.peptron.co.kr/ds4_1_1.html?db=newsp&no=122&c=view&page=1&SK=&SN=&kind3=&idx=",
+    "extra": {}
+  },
+  {
+    "key": "no=123",
+    "title": "일부 언론 보도에 대한 회사 입장 안내",
+    "date": "",
+    "text": "no=123",
+    "url": "https://www.peptron.co.kr/ds4_1_1.html?db=newsp&no=123&c=view&page=1&SK=&SN=&kind3=&idx=",
     "extra": {}
   },
   {
@@ -85,14 +93,6 @@
     "date": "",
     "text": "no=113",
     "url": "https://www.peptron.co.kr/ds4_1_1.html?db=newsp&no=113&c=view&page=1&SK=&SN=&kind3=&idx=",
-    "extra": {}
-  },
-  {
-    "key": "no=112",
-    "title": "투자자 문의와 관련한 회사의 안내",
-    "date": "",
-    "text": "no=112",
-    "url": "https://www.peptron.co.kr/ds4_1_1.html?db=newsp&no=112&c=view&page=1&SK=&SN=&kind3=&idx=",
     "extra": {}
   }
 ]
